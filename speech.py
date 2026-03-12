@@ -18,14 +18,11 @@
 
 import numpy
 import threading
-
 from gi.repository import Gst
 from gi.repository import GLib
 from gi.repository import GObject
-
 import logging
 logger = logging.getLogger('speak')
-
 from sugar3.speech import GstSpeechPlayer
 
 # Kokoro TTS imports
@@ -35,7 +32,11 @@ try:
 except ImportError:
     KOKORO_AVAILABLE = False
     logger.warning("Kokoro not available, falling back to espeak")
+#this below line maps language names to kokoro language code values
+#we know that using hindi or japanese and refering using 'f' which is for female is wrong the correct should be french the code given to the language names should signifiy what it correctly means
+LANGUAGE_CODES={"English":"a", "Hindi":"h","Italian":"i","Portuguese":"p","Japanese":"j","Chinese":"z","French":"f"}
 
+PITCH_MIN = 0
 PITCH_MIN = 0
 PITCH_MAX = 200
 RATE_MIN = 0
@@ -59,7 +60,7 @@ class Speech(GstSpeechPlayer):
             threading.Thread(target=self.setup_kokoro).start()
         
         # Predefined Kokoro voices for future GUI selection - TODO
-        self.kokoro_voices = [
+        self.kokoro_voices = set([
             'af_heart', 'af_alloy', 'af_aoede', 'af_bella', 'af_jessica', 'af_kore', 'af_nicole',
             'af_nova', 'af_river', 'af_sarah', 'af_sky','am_adam', 'am_echo', 'am_eric', 'am_fenrir',
             'am_adam', 'am_echo', 'am_eric', 'am_fenrir', 'am_liam', 'am_michael', 'am_onyx',
@@ -69,8 +70,10 @@ class Speech(GstSpeechPlayer):
             'zm_yunxi', 'zm_yunxia', 'zm_yunyang', 'ef_dora', 'em_alex', 'em_santa',
             'ff_siwis', 'hf_alpha', 'hf_beta', 'hm_omega', 'hm_psi',
             'if_sara', 'im_nicola', 'pf_dora', 'pm_alex', 'pm_santa'
-        ]
+        ]) #converting this into set inorder to remove duplicates
         self.current_kokoro_voice = 'af_heart'
+        self.current_language = 'English'
+        #we added above because user will need a defualt language
 
         self._cb = {}
         for cb in ['peak', 'wave', 'idle']:
@@ -102,6 +105,16 @@ class Speech(GstSpeechPlayer):
         else:
             logger.warning(f"Invalid Kokoro voice: {voice_name}.")
 
+    
+    def set_language(self, language_name):#this take language name as parameter
+        code=LANGUAGE_CODES.get(language_name) #get kokoro code from dict
+        #if language is there in the dict it creates new pipeline with language code and stores current language name in instance and successfully logs that language was set
+        if code:
+            self.kokoro_pipeline = KPipeline(lang_code=code)
+            self.current_language = language_name
+            logger.debug(f"Language set to: {language_name}")
+        else:
+            logger.warning(f"Unsupported language: {language_name}")#this is a warning msg for unsupported languages
     def get_available_kokoro_voices(self):
         return self.kokoro_voices.copy()
 
